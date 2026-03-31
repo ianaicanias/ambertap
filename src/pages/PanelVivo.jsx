@@ -28,6 +28,7 @@ function imprimirTicketSamy(pedido, clientaNombre) {
   <div class="sep"></div>
   <div class="campo"><span class="lbl">Color</span><span class="val">${color}</span></div>
   <div class="campo"><span class="lbl">Talle</span><span class="val">${talle}</span></div>
+  <div class="campo"><span class="lbl">Precio</span><span class="val">${pedido.prendaActiva?.precio_unitario ? '$' + pedido.prendaActiva.precio_unitario.toLocaleString('es') : '—'}</span></div>
   <div class="sep"></div>
   <div class="centro" style="font-size:11px;color:#888">Entregado por Samy · Ambertap</div>
   <script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}}<\/script>

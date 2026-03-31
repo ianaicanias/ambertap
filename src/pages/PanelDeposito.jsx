@@ -68,6 +68,7 @@ function imprimirTicket(pedido) {
       <div class="sep"></div>
       <div class="campo"><span class="lbl">Color</span><span class="val">${color}</span></div>
       <div class="campo"><span class="lbl">Talle</span><span class="val">${talle}</span></div>
+      <div class="campo"><span class="lbl">Precio</span><span class="val">${pedido.prendas_vivo?.precio_unitario ? "$" + pedido.prendas_vivo.precio_unitario.toLocaleString("es") : "—"}</span></div>
       ${pedido.incompleto ? '<div class="sep"></div><div style="text-align:center;font-weight:bold;color:#c00">⚠ INCOMPLETO</div>' : ""}
       <div class="sep"></div>
       <div class="centro" style="font-size:11px;color:#888">Preparado · Ambertap</div>
@@ -94,7 +95,9 @@ export default function PanelDeposito() {
   const cargarPedidos = useCallback(async (vivoId) => {
     const { data } = await supabase
       .from("pedidos")
-      .select("*, clientas(nombre_display), prendas_vivo(nombre, stock_con_samy)")
+      .select(
+        "*, clientas(nombre_display), prendas_vivo(nombre, precio_unitario, stock_con_samy)",
+      )
       .eq("vivo_id", vivoId)
       .not("estado", "eq", "cancelado")
       .order("hora", { ascending: false });
@@ -103,7 +106,9 @@ export default function PanelDeposito() {
       setLoading(false);
       return;
     }
-    const pend = data.filter(p => p.estado === 'pendiente' && !p.prendas_vivo?.stock_con_samy)
+    const pend = data.filter(
+      (p) => p.estado === "pendiente" && !p.prendas_vivo?.stock_con_samy,
+    );
     const prep = data.filter(
       (p) => p.estado === "preparado" || p.estado === "enviado",
     );

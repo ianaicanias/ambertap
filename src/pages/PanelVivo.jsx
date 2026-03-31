@@ -191,8 +191,13 @@ export default function PanelVivo() {
   }
 
   async function cargarPedidos(vivoId) {
-    const { data } = await supabase.from("pedidos").select("*, clientas(nombre_display), prendas_vivo(nombre, stock_con_samy)").eq("vivo_id", vivoId).order("hora", { ascending: false }).limit(40);
-    setPedidos(data || []);
+const { data } = await supabase.from("pedidos").select("*, clientas(nombre_display), prendas_vivo(nombre, stock_con_samy, precio_unitario)")    
+setPedidos(data || []);
+  }
+
+  async function cancelarPedido(pedidoId) {
+    await supabase.from("pedidos").update({ estado: "cancelado" }).eq("id", pedidoId);
+    await cargarPedidos(vivo.id);
   }
 
   async function buscarClientas(q) {
@@ -262,7 +267,7 @@ export default function PanelVivo() {
     await cargarPrendas(vivo.id);
   }
 
-  async function terminarVivo() {
+async function terminarVivo() {
   if (!vivo) return;
   if (!window.confirm("Terminar el vivo? Samy no podra agregar mas pedidos.")) return;
   await supabase.from("vivos").update({ hora_fin: new Date().toISOString() }).eq("id", vivo.id);
@@ -404,10 +409,12 @@ export default function PanelVivo() {
   <script>window.onload=function(){window.print()}<\/script>
   </body></html>`;
 
-  const ventana = window.open("", "_blank");
-  ventana.document.write(html);
-  ventana.document.close();
-  setVivo(null);
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+const a = document.createElement("a");
+a.href = URL.createObjectURL(blob);
+a.download = `resumen-vivo-${vivo.fecha}.html`;
+a.click();
+setVivo(null);
 }
 
   const coloresActivos = prendaActiva?.variantes_prenda ? [...new Set(prendaActiva.variantes_prenda.map((v) => v.color))] : [];
@@ -568,12 +575,27 @@ export default function PanelVivo() {
                 <span style={{ fontSize: 11, color: "#9c7d8a", marginLeft: 8 }}>
                   {new Date(p.hora).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                {p.prendas_vivo?.stock_con_samy && (
-                  <span style={{ fontSize: 10, color: "#A0436A", marginLeft: 6, border: "1px solid #c4a0b2", borderRadius: 99, padding: "1px 6px" }}>Samy</span>
-                )}
-                {p.incompleto
-                  ? <span className="badge-incompleto" style={{ marginLeft: 6 }}>inc</span>
-                  : <span className="badge-ok" style={{ marginLeft: 6 }}>ok</span>}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, marginLeft: 8, flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {p.prendas_vivo?.stock_con_samy && (
+                      <span style={{ fontSize: 10, color: "#A0436A", border: "1px solid #c4a0b2", borderRadius: 99, padding: "1px 6px" }}>Samy</span>
+                    )}
+                    {p.incompleto
+                      ? <span className="badge-incompleto">inc</span>
+                      : <span className="badge-ok">ok</span>}
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 99, border: "1px solid", fontWeight: 500,
+                      borderColor: p.estado === "preparado" ? "#C0DD97" : "#e8dde3",
+                      background: p.estado === "preparado" ? "#EAF3DE" : "#f7f3f5",
+                      color: p.estado === "preparado" ? "#27500A" : "#9c7d8a"
+                    }}>{p.estado === "preparado" ? "preparado" : "pendiente"}</span>
+                  </div>
+                  {p.estado === "pendiente" && (
+                    <button onClick={() => cancelarPedido(p.id)}
+                      style={{ fontSize: 10, color: "#A32D2D", border: "1px solid #F7C1C1", borderRadius: 99, padding: "1px 8px", cursor: "pointer", background: "transparent", fontWeight: 500 }}>
+                      Cancelar
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

@@ -263,21 +263,152 @@ export default function PanelVivo() {
   }
 
   async function terminarVivo() {
-    if (!vivo) return;
-    if (!window.confirm("Terminar el vivo? Samy no podra agregar mas pedidos.")) return;
-    await supabase.from("vivos").update({ hora_fin: new Date().toISOString() }).eq("id", vivo.id);
-    const lineas = [...pedidos].reverse().map((p) =>
-      `${new Date(p.hora).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} | ${p.clientas?.nombre_display || "—"} | ${p.prendas_vivo?.nombre || "—"} | ${p.color || "—"} ${p.talle || "—"}${p.incompleto ? " [INCOMPLETO]" : ""}${p.prendas_vivo?.stock_con_samy ? " [SAMY]" : ""}`
-    ).join("\n");
-    const fecha = new Date(vivo.fecha + "T00:00:00").toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const txt = `AMBERTAP — Vivo ${fecha}\nTotal: ${pedidos.length} pedidos\n\n${lineas}`;
-    const blob = new Blob([txt], { type: "text/plain" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `vivo-${vivo.fecha}.txt`;
-    a.click();
-    setVivo(null);
+  if (!vivo) return;
+  if (!window.confirm("Terminar el vivo? Samy no podra agregar mas pedidos.")) return;
+  await supabase.from("vivos").update({ hora_fin: new Date().toISOString() }).eq("id", vivo.id);
+
+  const pedidosCompletos = [...pedidos].reverse();
+  const fecha = new Date(vivo.fecha + "T00:00:00").toLocaleDateString("es", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
+  const horaInicio = new Date(vivo.hora_inicio).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  const horaFin = new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+
+  const totalPedidos = pedidosCompletos.length;
+  const incompletos = pedidosCompletos.filter(p => p.incompleto).length;
+  const clientasUnicas = new Set(pedidosCompletos.map(p => p.clientas?.nombre_display).filter(Boolean)).size;
+  const totalPotencial = pedidosCompletos.reduce((s, p) => s + (p.prendas_vivo?.precio_unitario || 0), 0);
+  const conSamy = pedidosCompletos.filter(p => p.prendas_vivo?.stock_con_samy).length;
+
+  const tallesConteo = {};
+  const coloresConteo = {};
+  const prendasConteo = {};
+  for (const p of pedidosCompletos) {
+    if (p.talle) tallesConteo[p.talle] = (tallesConteo[p.talle] || 0) + 1;
+    if (p.color) coloresConteo[p.color] = (coloresConteo[p.color] || 0) + 1;
+    const np = p.prendas_vivo?.nombre;
+    if (np) prendasConteo[np] = (prendasConteo[np] || 0) + 1;
   }
+
+  const topTalles = Object.entries(tallesConteo).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const topColores = Object.entries(coloresConteo).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const topPrendas = Object.entries(prendasConteo).sort((a,b) => b[1]-a[1]);
+
+  const barraHTML = (items, max) => items.map(([label, n]) => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="width:80px;font-size:11px;color:#555;text-align:right;flex-shrink:0">${label}</div>
+      <div style="flex:1;height:10px;background:#f0e8ec;border-radius:99px;overflow:hidden">
+        <div style="height:100%;background:#A0436A;border-radius:99px;width:${Math.round(n/max*100)}%"></div>
+      </div>
+      <div style="width:24px;font-size:11px;color:#555;flex-shrink:0">${n}</div>
+    </div>`).join("");
+
+  const filasTabla = pedidosCompletos.map((p, i) => `
+    <tr style="background:${i%2===0?'#fff':'#fdf8fa'}">
+      <td style="padding:5px 8px;color:#888;font-size:11px">${String(i+1).padStart(2,'0')}</td>
+      <td style="padding:5px 8px;font-size:11px">${new Date(p.hora).toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"})}</td>
+      <td style="padding:5px 8px;font-size:12px;font-weight:500">${p.clientas?.nombre_display||"—"}</td>
+      <td style="padding:5px 8px;font-size:11px;color:#555">${p.prendas_vivo?.nombre||"—"}</td>
+      <td style="padding:5px 8px;font-size:11px">${p.color||"—"}</td>
+      <td style="padding:5px 8px;font-size:11px">${p.talle||"—"}</td>
+      <td style="padding:5px 8px;font-size:11px;color:#A0436A;font-weight:500">${p.prendas_vivo?.precio_unitario?'$'+p.prendas_vivo.precio_unitario.toLocaleString('es'):'—'}</td>
+      <td style="padding:5px 8px;font-size:11px;text-align:center">${p.incompleto?'<span style="color:#A32D2D">inc</span>':'<span style="color:#27500A">ok</span>'}${p.prendas_vivo?.stock_con_samy?' <span style="color:#A0436A;font-size:10px">Samy</span>':''}</td>
+    </tr>`).join("");
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Resumen Vivo ${vivo.fecha}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1014;font-size:13px;padding:32px}
+    h1{font-size:22px;font-weight:700;color:#A0436A;letter-spacing:-.5px}
+    h2{font-size:14px;font-weight:600;color:#A0436A;margin:24px 0 12px;text-transform:uppercase;letter-spacing:.06em}
+    .sep{border-top:1px solid #e8dde3;margin:20px 0}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+    .stat{background:#f7f3f5;border-radius:10px;padding:14px;text-align:center}
+    .stat .n{font-size:28px;font-weight:700;color:#A0436A}
+    .stat .l{font-size:11px;color:#9c7d8a;margin-top:3px}
+    .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin:16px 0}
+    table{width:100%;border-collapse:collapse}
+    th{background:#A0436A;color:#fff;padding:7px 8px;font-size:11px;font-weight:600;text-align:left}
+    @media print{
+      @page{margin:20mm}
+      .pagebreak{page-break-before:always}
+    }
+  </style>
+  </head><body>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+    <div>
+      <h1>Ambertap</h1>
+      <div style="font-size:13px;color:#9c7d8a;margin-top:4px;text-transform:capitalize">${fecha}</div>
+      <div style="font-size:12px;color:#9c7d8a">${horaInicio}hs — ${horaFin}hs</div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#c4a0b2">Generado ${new Date().toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'})} · ${new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}hs</div>
+  </div>
+
+  <div class="sep"></div>
+  <h2>Resumen del vivo</h2>
+
+  <div class="stats">
+    <div class="stat"><div class="n">${totalPedidos}</div><div class="l">pedidos totales</div></div>
+    <div class="stat"><div class="n">${clientasUnicas}</div><div class="l">clientas</div></div>
+    <div class="stat"><div class="n" style="color:${incompletos>0?'#A32D2D':'#A0436A'}">${incompletos}</div><div class="l">incompletos</div></div>
+    <div class="stat"><div class="n">$${Math.round(totalPotencial/1000)}k</div><div class="l">potencial total</div></div>
+  </div>
+
+  <div style="background:#f7f3f5;border-radius:8px;padding:10px 14px;font-size:12px;color:#6b4d5a;margin-bottom:8px">
+    Total potencial: <strong>$${totalPotencial.toLocaleString('es')}</strong> · 
+    Promedio por clienta: <strong>$${clientasUnicas>0?Math.round(totalPotencial/clientasUnicas).toLocaleString('es'):'—'}</strong> · 
+    Con stock en Samy: <strong>${conSamy} pedidos</strong>
+  </div>
+
+  <div class="cols">
+    <div>
+      <h2>Prendas</h2>
+      ${barraHTML(topPrendas, topPrendas[0]?.[1]||1)}
+    </div>
+    <div>
+      <h2>Talles</h2>
+      ${barraHTML(topTalles, topTalles[0]?.[1]||1)}
+    </div>
+    <div>
+      <h2>Colores</h2>
+      ${barraHTML(topColores, topColores[0]?.[1]||1)}
+    </div>
+  </div>
+
+  <div class="pagebreak"></div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="margin:0">Detalle de pedidos</h2>
+    <div style="font-size:11px;color:#9c7d8a">${totalPedidos} pedidos · ${vivo.fecha}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32px">#</th>
+        <th style="width:48px">Hora</th>
+        <th>Clienta</th>
+        <th>Prenda</th>
+        <th style="width:60px">Color</th>
+        <th style="width:44px">Talle</th>
+        <th style="width:64px">Precio</th>
+        <th style="width:60px;text-align:center">Estado</th>
+      </tr>
+    </thead>
+    <tbody>${filasTabla}</tbody>
+  </table>
+
+  <div class="sep"></div>
+  <div style="font-size:11px;color:#c4a0b2;text-align:center">Ambertap · ${vivo.fecha} · ${totalPedidos} pedidos</div>
+
+  <script>window.onload=function(){window.print()}<\/script>
+  </body></html>`;
+
+  const ventana = window.open("", "_blank");
+  ventana.document.write(html);
+  ventana.document.close();
+  setVivo(null);
+}
 
   const coloresActivos = prendaActiva?.variantes_prenda ? [...new Set(prendaActiva.variantes_prenda.map((v) => v.color))] : [];
   const tallesActivos = prendaActiva?.variantes_prenda ? [...new Set(prendaActiva.variantes_prenda.map((v) => v.talle))] : [];

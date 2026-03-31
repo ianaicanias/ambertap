@@ -94,7 +94,7 @@ export default function PanelDeposito() {
   const cargarPedidos = useCallback(async (vivoId) => {
     const { data } = await supabase
       .from("pedidos")
-      .select("*, clientas(nombre_display), prendas_vivo(nombre)")
+      .select("*, clientas(nombre_display), prendas_vivo(nombre, stock_con_samy)")
       .eq("vivo_id", vivoId)
       .not("estado", "eq", "cancelado")
       .order("hora", { ascending: false });
@@ -103,7 +103,7 @@ export default function PanelDeposito() {
       setLoading(false);
       return;
     }
-    const pend = data.filter((p) => p.estado === "pendiente");
+    const pend = data.filter(p => p.estado === 'pendiente' && !p.prendas_vivo?.stock_con_samy)
     const prep = data.filter(
       (p) => p.estado === "preparado" || p.estado === "enviado",
     );

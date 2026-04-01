@@ -3,18 +3,52 @@ import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 const COLORES_DEFAULT = [
-  "Negro",
+  "Black",
   "Bordo",
   "Blanco",
   "Beige",
   "Verde",
+  "Verde claro",
   "Azul",
   "Rojo",
   "Rosa",
   "Gris",
-  "Marron",
+  "Chocolate",
+  "Terracota",
 ];
+
+const COLOR_MAP = {
+  Black: "#000000",
+  Bordo: "#7A1E2C",
+  Blanco: "#FFFFFF",
+  Beige: "#E8D8C3",
+  Verde: "#2F6F3E",
+  "Verde claro": "#8ED081",
+  Azul: "#2F5AA8",
+  Rojo: "#C0392B",
+  Rosa: "#F28CA3",
+  Gris: "#7A7A7A",
+  Chocolate: "#4A2C1D",
+  Terracota: "#C76A3A",
+};
+
 const TALLES = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "Unico"];
+
+function ColorDot({ color }) {
+  return (
+    <span
+      style={{
+        width: 10,
+        height: 10,
+        borderRadius: "50%",
+        background: COLOR_MAP[color] || "#ccc",
+        display: "inline-block",
+        marginRight: 6,
+        border: "1px solid #ddd",
+      }}
+    />
+  );
+}
 
 function imprimirTicketSamy(pedido, clientaNombre) {
   const prenda = pedido.prendaActiva?.nombre || "—";
@@ -55,13 +89,15 @@ function imprimirTicketSamy(pedido, clientaNombre) {
   ventana.document.close();
 }
 
+// ─── Modal Nueva Prenda ───────────────────────────────────────────────────────
+
 function ModalNuevaPrenda({ onCrear, onClose }) {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [coloresInput, setColoresInput] = useState("");
-  const [tallesSel, setTallesSel] = useState(["M", "L", "XL"]);
+  const [tallesSel, setTallesSel] = useState(["Unico"]);
   const [coloresSel, setColoresSel] = useState([]);
-  const [enDeposito, setEnDeposito] = useState(true);
+  const [enDeposito, setEnDeposito] = useState(false);
   const [error, setError] = useState("");
 
   const cbtn = (on) => ({
@@ -160,7 +196,10 @@ function ModalNuevaPrenda({ onCrear, onClose }) {
                 )
               }
             >
-              {c}
+              <>
+                <ColorDot color={c} />
+                {c}
+              </>
             </button>
           ))}
         </div>
@@ -198,7 +237,6 @@ function ModalNuevaPrenda({ onCrear, onClose }) {
             </button>
           ))}
         </div>
-
         <label
           style={{
             display: "flex",
@@ -248,7 +286,6 @@ function ModalNuevaPrenda({ onCrear, onClose }) {
             </div>
           </div>
         </label>
-
         {error && (
           <p style={{ color: "#A32D2D", fontSize: 13, marginBottom: 8 }}>
             {error}
@@ -262,6 +299,165 @@ function ModalNuevaPrenda({ onCrear, onClose }) {
   );
 }
 
+// ─── Modal Agregar Variantes ──────────────────────────────────────────────────
+
+function ModalAgregarVariantes({ prenda, onAgregar, onClose }) {
+  const [coloresInput, setColoresInput] = useState("");
+  const [tallesInput, setTallesInput] = useState("");
+  const [coloresSel, setColoresSel] = useState([]);
+  const [tallesSel, setTallesSel] = useState([]);
+  const [error, setError] = useState("");
+
+  const coloresExistentes = prenda.variantes_prenda
+    ? [...new Set(prenda.variantes_prenda.map((v) => v.color))]
+    : [];
+  const tallesExistentes = prenda.variantes_prenda
+    ? [...new Set(prenda.variantes_prenda.map((v) => v.talle))]
+    : [];
+
+  const cbtn = (on, disabled) => ({
+    padding: "6px 14px",
+    borderRadius: 99,
+    border: "1px solid",
+    fontSize: 13,
+    cursor: disabled ? "default" : "pointer",
+    borderColor: disabled ? "#f0ece0" : on ? "#A0436A" : "#e8dde3",
+    background: disabled ? "#fafaf5" : on ? "#A0436A" : "#fff",
+    color: disabled ? "#ccc" : on ? "#fff" : "#1a1014",
+    transition: "all .1s",
+  });
+  const tbtn = (on, disabled) => ({
+    width: 44,
+    height: 38,
+    borderRadius: 8,
+    border: "1px solid",
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: disabled ? "default" : "pointer",
+    borderColor: disabled ? "#f0ece0" : on ? "#A0436A" : "#e8dde3",
+    background: disabled ? "#fafaf5" : on ? "#A0436A" : "#fff",
+    color: disabled ? "#ccc" : on ? "#fff" : "#1a1014",
+  });
+
+  function handleAgregar() {
+    const extrasC = coloresInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const extrasT = tallesInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const nuevosColores = [...new Set([...coloresSel, ...extrasC])];
+    const nuevosTalles = [...new Set([...tallesSel, ...extrasT])];
+    if (!nuevosColores.length && !nuevosTalles.length) {
+      setError("Selecciona al menos un color o talle nuevo");
+      return;
+    }
+    onAgregar({ nuevosColores, nuevosTalles });
+  }
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal">
+        <h3>
+          Agregar variantes{" "}
+          <button className="modal-close" onClick={onClose}>
+            &#x2715;
+          </button>
+        </h3>
+        <p style={{ fontSize: 13, color: "#9c7d8a", marginBottom: 14 }}>
+          Prenda: <strong style={{ color: "#1a1014" }}>{prenda.nombre}</strong>
+        </p>
+        <div className="section-label">Nuevos colores</div>
+        <div
+          style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}
+        >
+          {COLORES_DEFAULT.map((c) => {
+            const yaExiste = coloresExistentes.includes(c);
+            return (
+              <button
+                key={c}
+                style={cbtn(coloresSel.includes(c), yaExiste)}
+                onClick={() =>
+                  !yaExiste &&
+                  setColoresSel((p) =>
+                    p.includes(c) ? p.filter((x) => x !== c) : [...p, c],
+                  )
+                }
+              >
+                <>
+                  <ColorDot color={c} />
+                  {c}
+                </>
+                {yaExiste ? " ✓" : ""}
+              </button>
+            );
+          })}
+        </div>
+        <input
+          className="input"
+          value={coloresInput}
+          onChange={(e) => setColoresInput(e.target.value)}
+          placeholder="Otros colores separados por coma..."
+        />
+        <div className="section-label">Nuevos talles</div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            marginBottom: 14,
+          }}
+        >
+          {TALLES.map((t) => {
+            const yaExiste = tallesExistentes.includes(t);
+            return (
+              <button
+                key={t}
+                style={tbtn(tallesSel.includes(t), yaExiste)}
+                onClick={() =>
+                  !yaExiste &&
+                  setTallesSel((prev) => {
+                    if (t === "Unico")
+                      return prev.includes("Unico") ? [] : ["Unico"];
+                    let nuevos = prev.filter((x) => x !== "Unico");
+                    return nuevos.includes(t)
+                      ? nuevos.filter((x) => x !== t)
+                      : [...nuevos, t];
+                  })
+                }
+              >
+                {t}
+                {yaExiste ? " ✓" : ""}
+              </button>
+            );
+          })}
+        </div>
+        <input
+          className="input"
+          value={tallesInput}
+          onChange={(e) => setTallesInput(e.target.value)}
+          placeholder="Otros talles separados por coma..."
+        />
+        {error && (
+          <p style={{ color: "#A32D2D", fontSize: 13, marginBottom: 8 }}>
+            {error}
+          </p>
+        )}
+        <button className="btn-primary" onClick={handleAgregar}>
+          Agregar variantes
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal Clienta Nueva ──────────────────────────────────────────────────────
+
 function ModalClientaNueva({ nombre, onGuardar, onClose }) {
   const [tel, setTel] = useState("");
   const [error, setError] = useState("");
@@ -273,6 +469,10 @@ function ModalClientaNueva({ nombre, onGuardar, onClose }) {
       return;
     }
     onGuardar(limpio);
+  }
+
+  function handleSinNumero() {
+    onGuardar(null);
   }
 
   return (
@@ -328,10 +528,209 @@ function ModalClientaNueva({ nombre, onGuardar, onClose }) {
         >
           Registrar y confirmar
         </button>
+        <button
+          onClick={handleSinNumero}
+          style={{
+            width: "100%",
+            marginTop: 8,
+            padding: "10px",
+            borderRadius: 10,
+            border: "1px dashed #c4a0b2",
+            background: "transparent",
+            color: "#A0436A",
+            fontSize: 13,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          Registrar sin número — completar después
+        </button>
       </div>
     </div>
   );
 }
+
+// ─── Panel Números Pendientes ─────────────────────────────────────────────────
+
+function PanelNumerosPendientes({ vivoId, onCerrar }) {
+  const [pendientes, setPendientes] = useState([]);
+  const [tels, setTels] = useState({});
+  const [guardando, setGuardando] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    cargarPendientes();
+  }, [vivoId]);
+
+  async function cargarPendientes() {
+    setLoading(true);
+    const { data } = await supabase
+      .from("pedidos")
+      .select("clienta_id, clientas(id, nombre_display, whatsapp)")
+      .eq("vivo_id", vivoId);
+
+    if (data) {
+      const vistas = new Set();
+      const unicas = data
+        .filter((p) => p.clientas && !p.clientas.whatsapp)
+        .filter((p) => {
+          if (vistas.has(p.clienta_id)) return false;
+          vistas.add(p.clienta_id);
+          return true;
+        })
+        .map((p) => p.clientas);
+      setPendientes(unicas);
+    }
+    setLoading(false);
+  }
+
+  async function guardarNumero(clientaId) {
+    const limpio = (tels[clientaId] || "").replace(/\D/g, "");
+    if (limpio.length < 8) return;
+    setGuardando((g) => ({ ...g, [clientaId]: true }));
+    await supabase
+      .from("clientas")
+      .update({ whatsapp: limpio })
+      .eq("id", clientaId);
+    setPendientes((prev) => prev.filter((c) => c.id !== clientaId));
+    setGuardando((g) => ({ ...g, [clientaId]: false }));
+  }
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e8dde3",
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 12,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1014" }}>
+            📱 Números pendientes
+          </div>
+          <div style={{ fontSize: 11, color: "#9c7d8a", marginTop: 2 }}>
+            Clientas sin WhatsApp de este vivo
+          </div>
+        </div>
+        <button
+          onClick={onCerrar}
+          style={{
+            fontSize: 11,
+            color: "#9c7d8a",
+            border: "1px solid #e8dde3",
+            borderRadius: 99,
+            padding: "3px 10px",
+            cursor: "pointer",
+            background: "transparent",
+          }}
+        >
+          Cerrar
+        </button>
+      </div>
+
+      {loading && <p style={{ fontSize: 13, color: "#9c7d8a" }}>Cargando...</p>}
+
+      {!loading && pendientes.length === 0 && (
+        <p
+          style={{
+            fontSize: 13,
+            color: "#27500A",
+            background: "#EAF3DE",
+            borderRadius: 8,
+            padding: "10px 12px",
+          }}
+        >
+          ✓ Todas las clientas tienen número registrado
+        </p>
+      )}
+
+      {!loading &&
+        pendientes.map((c) => (
+          <div
+            key={c.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 0",
+              borderBottom: "1px solid #f7f3f5",
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
+              {c.nombre_display}
+            </div>
+            <span style={{ fontSize: 13, color: "#9c7d8a", flexShrink: 0 }}>
+              +598
+            </span>
+            <input
+              style={{
+                border: "1px solid #e8dde3",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontSize: 13,
+                width: 130,
+                outline: "none",
+              }}
+              placeholder="094 123 456"
+              type="tel"
+              value={tels[c.id] || ""}
+              onChange={(e) =>
+                setTels((t) => ({ ...t, [c.id]: e.target.value }))
+              }
+              onKeyDown={(e) => e.key === "Enter" && guardarNumero(c.id)}
+            />
+            <button
+              onClick={() => guardarNumero(c.id)}
+              disabled={guardando[c.id]}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 99,
+                border: "none",
+                background: "#A0436A",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                flexShrink: 0,
+                opacity: guardando[c.id] ? 0.6 : 1,
+              }}
+            >
+              {guardando[c.id] ? "..." : "Listo"}
+            </button>
+          </div>
+        ))}
+
+      {!loading && pendientes.length > 0 && (
+        <button
+          onClick={cargarPendientes}
+          style={{
+            marginTop: 10,
+            fontSize: 11,
+            color: "#9c7d8a",
+            border: "none",
+            background: "none",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          Actualizar lista
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Panel Principal ──────────────────────────────────────────────────────────
 
 export default function PanelVivo() {
   const navigate = useNavigate();
@@ -345,22 +744,51 @@ export default function PanelVivo() {
   const [sugerencias, setSugerencias] = useState([]);
   const [clientaSel, setClientaSel] = useState(null);
   const [modalNuevaPrenda, setModalNuevaPrenda] = useState(false);
+  const [modalAgregarVariantes, setModalAgregarVariantes] = useState(false);
   const [modalNuevaClientaNombre, setModalNuevaClientaNombre] = useState(null);
   const [pendingNombre, setPendingNombre] = useState(null);
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [errorNombre, setErrorNombre] = useState(false);
+  const [apuntes, setApuntes] = useState("");
+  const [mostrarPendientes, setMostrarPendientes] = useState(false);
   const sugerRef = useRef(null);
 
   useEffect(() => {
     cargarEstadoVivo();
+
     function handleClick(e) {
       if (sugerRef.current && !sugerRef.current.contains(e.target))
         setSugerencias([]);
     }
+
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+
+    let channel;
+
+    if (vivo?.id) {
+      channel = supabase
+        .channel("pedidos-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "pedidos",
+            filter: `vivo_id=eq.${vivo.id}`,
+          },
+          async () => {
+            await cargarPedidos(vivo.id);
+          },
+        )
+        .subscribe();
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [vivo?.id]);
 
   async function cargarEstadoVivo() {
     setLoading(true);
@@ -369,10 +797,11 @@ export default function PanelVivo() {
       .from("vivos")
       .select("*")
       .eq("fecha", hoy)
+      .is("hora_fin", null)
       .order("hora_inicio", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (data && !data.hora_fin) {
+    if (data) {
       setVivo(data);
       await cargarPrendas(data.id);
       await cargarPedidos(data.id);
@@ -414,9 +843,10 @@ export default function PanelVivo() {
     const { data } = await supabase
       .from("pedidos")
       .select(
-        "*, clientas(nombre_display), prendas_vivo(nombre, stock_con_samy, precio_unitario)",
+        "*, clientas(nombre_display, whatsapp), prendas_vivo(nombre, stock_con_samy, precio_unitario)",
       )
-      .eq("vivo_id", vivoId);
+      .eq("vivo_id", vivoId)
+      .order("hora", { ascending: true });
     setPedidos(data || []);
   }
 
@@ -488,18 +918,17 @@ export default function PanelVivo() {
         compras_count: (clienta.compras_count || 0) + 1,
       })
       .eq("id", clienta.id);
-    await supabase
-      .from("pedidos")
-      .insert({
-        vivo_id: vivo.id,
-        prenda_vivo_id: prendaActiva.id,
-        clienta_id: clienta.id,
-        color: colorSel,
-        talle: talleSel,
-        incompleto,
-        hora: new Date().toISOString(),
-        estado: estadoInicial,
-      });
+
+    await supabase.from("pedidos").insert({
+      vivo_id: vivo.id,
+      prenda_vivo_id: prendaActiva.id,
+      clienta_id: clienta.id,
+      color: colorSel,
+      talle: talleSel,
+      incompleto,
+      hora: new Date().toISOString(),
+      estado: estadoInicial,
+    });
 
     if (stockConSamy) {
       imprimirTicketSamy(
@@ -519,15 +948,18 @@ export default function PanelVivo() {
   }
 
   async function handleClientaNuevaGuardar(tel) {
+    // tel puede ser null si eligió "sin número"
+    const insertData = {
+      nombre_display: pendingNombre,
+      primera_compra: new Date().toISOString(),
+      ultima_compra: new Date().toISOString(),
+      compras_count: 1,
+    };
+    if (tel) insertData.whatsapp = tel;
+
     const { data: nueva } = await supabase
       .from("clientas")
-      .insert({
-        nombre_display: pendingNombre,
-        whatsapp: tel,
-        primera_compra: new Date().toISOString(),
-        ultima_compra: new Date().toISOString(),
-        compras_count: 1,
-      })
+      .insert(insertData)
       .select()
       .single();
     setModalNuevaClientaNombre(null);
@@ -571,6 +1003,44 @@ export default function PanelVivo() {
     await cargarPrendas(vivo.id);
   }
 
+  async function handleAgregarVariantes({ nuevosColores, nuevosTalles }) {
+    if (!prendaActiva) return;
+
+    const coloresExistentes = [
+      ...new Set(prendaActiva.variantes_prenda.map((v) => v.color)),
+    ];
+    const tallesExistentes = [
+      ...new Set(prendaActiva.variantes_prenda.map((v) => v.talle)),
+    ];
+
+    const todosColores = [...new Set([...coloresExistentes, ...nuevosColores])];
+    const todosTalles = [...new Set([...tallesExistentes, ...nuevosTalles])];
+
+    // Solo insertar combinaciones que no existen
+    const existentes = new Set(
+      prendaActiva.variantes_prenda.map((v) => `${v.color}|${v.talle}`),
+    );
+    const nuevasVariantes = [];
+    for (const c of todosColores) {
+      for (const t of todosTalles) {
+        if (!existentes.has(`${c}|${t}`)) {
+          nuevasVariantes.push({
+            prenda_vivo_id: prendaActiva.id,
+            color: c,
+            talle: t,
+          });
+        }
+      }
+    }
+
+    if (nuevasVariantes.length > 0) {
+      await supabase.from("variantes_prenda").insert(nuevasVariantes);
+    }
+
+    setModalAgregarVariantes(false);
+    await cargarPrendas(vivo.id);
+  }
+
   async function handleReactivar(prenda) {
     await supabase
       .from("prendas_vivo")
@@ -595,7 +1065,16 @@ export default function PanelVivo() {
       .update({ hora_fin: new Date().toISOString() })
       .eq("id", vivo.id);
 
-    const pedidosCompletos = [...pedidos].reverse();
+    // Recargar pedidos frescos para el resumen (fix del bug de estadísticas en 0)
+    const { data: pedidosFrescos } = await supabase
+      .from("pedidos")
+      .select(
+        "*, clientas(nombre_display), prendas_vivo(nombre, stock_con_samy, precio_unitario)",
+      )
+      .eq("vivo_id", vivo.id)
+      .order("hora", { ascending: true });
+
+    const pedidosCompletos = pedidosFrescos || [];
     const fecha = new Date(vivo.fecha + "T00:00:00").toLocaleDateString("es", {
       weekday: "long",
       day: "2-digit",
@@ -674,6 +1153,13 @@ export default function PanelVivo() {
       )
       .join("");
 
+    const apuntesHTML = apuntes.trim()
+      ? `
+    <div class="sep"></div>
+    <h2>Apuntes del vivo</h2>
+    <div style="background:#f7f3f5;border-radius:8px;padding:12px 14px;font-size:13px;color:#1a1014;white-space:pre-wrap;line-height:1.6">${apuntes.trim()}</div>`
+      : "";
+
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
   <title>Resumen Vivo ${vivo.fecha}</title>
   <style>
@@ -689,13 +1175,9 @@ export default function PanelVivo() {
     .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin:16px 0}
     table{width:100%;border-collapse:collapse}
     th{background:#A0436A;color:#fff;padding:7px 8px;font-size:11px;font-weight:600;text-align:left}
-    @media print{
-      @page{margin:20mm}
-      .pagebreak{page-break-before:always}
-    }
+    @media print{@page{margin:20mm}.pagebreak{page-break-before:always}}
   </style>
   </head><body>
-
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
     <div>
       <h1>Ambertap</h1>
@@ -704,64 +1186,42 @@ export default function PanelVivo() {
     </div>
     <div style="text-align:right;font-size:11px;color:#c4a0b2">Generado ${new Date().toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" })} · ${new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}hs</div>
   </div>
-
   <div class="sep"></div>
   <h2>Resumen del vivo</h2>
-
   <div class="stats">
     <div class="stat"><div class="n">${totalPedidos}</div><div class="l">pedidos totales</div></div>
     <div class="stat"><div class="n">${clientasUnicas}</div><div class="l">clientas</div></div>
     <div class="stat"><div class="n" style="color:${incompletos > 0 ? "#A32D2D" : "#A0436A"}">${incompletos}</div><div class="l">incompletos</div></div>
     <div class="stat"><div class="n">$${Math.round(totalPotencial / 1000)}k</div><div class="l">potencial total</div></div>
   </div>
-
   <div style="background:#f7f3f5;border-radius:8px;padding:10px 14px;font-size:12px;color:#6b4d5a;margin-bottom:8px">
     Total potencial: <strong>$${totalPotencial.toLocaleString("es")}</strong> · 
     Promedio por clienta: <strong>$${clientasUnicas > 0 ? Math.round(totalPotencial / clientasUnicas).toLocaleString("es") : "—"}</strong> · 
     Con stock en Samy: <strong>${conSamy} pedidos</strong>
   </div>
-
   <div class="cols">
-    <div>
-      <h2>Prendas</h2>
-      ${barraHTML(topPrendas, topPrendas[0]?.[1] || 1)}
-    </div>
-    <div>
-      <h2>Talles</h2>
-      ${barraHTML(topTalles, topTalles[0]?.[1] || 1)}
-    </div>
-    <div>
-      <h2>Colores</h2>
-      ${barraHTML(topColores, topColores[0]?.[1] || 1)}
-    </div>
+    <div><h2>Prendas</h2>${barraHTML(topPrendas, topPrendas[0]?.[1] || 1)}</div>
+    <div><h2>Talles</h2>${barraHTML(topTalles, topTalles[0]?.[1] || 1)}</div>
+    <div><h2>Colores</h2>${barraHTML(topColores, topColores[0]?.[1] || 1)}</div>
   </div>
-
+  ${apuntesHTML}
   <div class="pagebreak"></div>
-
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="margin:0">Detalle de pedidos</h2>
     <div style="font-size:11px;color:#9c7d8a">${totalPedidos} pedidos · ${vivo.fecha}</div>
   </div>
-
   <table>
     <thead>
       <tr>
-        <th style="width:32px">#</th>
-        <th style="width:48px">Hora</th>
-        <th>Clienta</th>
-        <th>Prenda</th>
-        <th style="width:60px">Color</th>
-        <th style="width:44px">Talle</th>
-        <th style="width:64px">Precio</th>
-        <th style="width:60px;text-align:center">Estado</th>
+        <th style="width:32px">#</th><th style="width:48px">Hora</th><th>Clienta</th>
+        <th>Prenda</th><th style="width:60px">Color</th><th style="width:44px">Talle</th>
+        <th style="width:64px">Precio</th><th style="width:60px;text-align:center">Estado</th>
       </tr>
     </thead>
     <tbody>${filasTabla}</tbody>
   </table>
-
   <div class="sep"></div>
   <div style="font-size:11px;color:#c4a0b2;text-align:center">Ambertap · ${vivo.fecha} · ${totalPedidos} pedidos</div>
-
   <script>window.onload=function(){window.print()}<\/script>
   </body></html>`;
 
@@ -772,6 +1232,8 @@ export default function PanelVivo() {
     a.click();
     setVivo(null);
   }
+
+  // ─── Derived state ──────────────────────────────────────────────────────────
 
   const coloresActivos = prendaActiva?.variantes_prenda
     ? [...new Set(prendaActiva.variantes_prenda.map((v) => v.color))]
@@ -795,6 +1257,22 @@ export default function PanelVivo() {
       })
     : "";
 
+  // Conteo de pedidos por prenda para el historial de anteriores
+  const pedidosPorPrenda = pedidos.reduce((acc, p) => {
+    if (p.prenda_vivo_id)
+      acc[p.prenda_vivo_id] = (acc[p.prenda_vivo_id] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Clientas sin número en este vivo
+  const sinNumero = [
+    ...new Set(
+      pedidos
+        .filter((p) => p.clientas && !p.clientas.whatsapp)
+        .map((p) => p.clienta_id),
+    ),
+  ].length;
+
   const cbtn = (on) => ({
     padding: "6px 14px",
     borderRadius: 99,
@@ -817,6 +1295,8 @@ export default function PanelVivo() {
     background: on ? "#A0436A" : "#fff",
     color: on ? "#fff" : "#1a1014",
   });
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   if (loading)
     return <p style={{ padding: 20, color: "#9c7d8a" }}>Cargando...</p>;
@@ -851,6 +1331,7 @@ export default function PanelVivo() {
 
   return (
     <div>
+      {/* Header */}
       <div style={{ marginBottom: 14 }}>
         <h2
           style={{
@@ -870,6 +1351,7 @@ export default function PanelVivo() {
         </p>
       </div>
 
+      {/* Stats */}
       <div
         style={{
           display: "grid",
@@ -897,6 +1379,44 @@ export default function PanelVivo() {
         </div>
       </div>
 
+      {/* Banner números pendientes */}
+      {sinNumero > 0 && !mostrarPendientes && (
+        <button
+          onClick={() => setMostrarPendientes(true)}
+          style={{
+            width: "100%",
+            marginBottom: 12,
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid #c4a0b2",
+            background: "#f5e6ed",
+            color: "#A0436A",
+            fontSize: 13,
+            cursor: "pointer",
+            fontWeight: 500,
+            textAlign: "left",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>
+            📱 {sinNumero} clienta{sinNumero > 1 ? "s" : ""} sin número de
+            WhatsApp
+          </span>
+          <span style={{ fontSize: 11, opacity: 0.7 }}>Completar →</span>
+        </button>
+      )}
+
+      {/* Panel números pendientes expandido */}
+      {mostrarPendientes && (
+        <PanelNumerosPendientes
+          vivoId={vivo.id}
+          onCerrar={() => setMostrarPendientes(false)}
+        />
+      )}
+
+      {/* Prenda activa + anteriores */}
       <div
         style={{
           display: "grid",
@@ -975,8 +1495,34 @@ export default function PanelVivo() {
                   : "sin precio"}
               </div>
 
-              <div className="section-label" style={{ marginTop: 0 }}>
-                Color
+              {/* Color con botón + agregar */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 6,
+                }}
+              >
+                <div className="section-label" style={{ margin: 0 }}>
+                  Color
+                </div>
+                <button
+                  onClick={() => setModalAgregarVariantes(true)}
+                  style={{
+                    fontSize: 11,
+                    color: "#A0436A",
+                    border: "1px solid #c4a0b2",
+                    borderRadius: 99,
+                    padding: "1px 8px",
+                    cursor: "pointer",
+                    background: "transparent",
+                    fontWeight: 600,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  + agregar
+                </button>
               </div>
               <div
                 style={{
@@ -992,14 +1538,43 @@ export default function PanelVivo() {
                     style={cbtn(colorSel === c)}
                     onClick={() => setColorSel(colorSel === c ? null : c)}
                   >
+                    <ColorDot color={c} />
                     {c}
                   </button>
                 ))}
               </div>
 
+              {/* Talle con botón + agregar */}
               {!esTalleUnico && (
                 <>
-                  <div className="section-label">Talle</div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <div className="section-label" style={{ margin: 0 }}>
+                      Talle
+                    </div>
+                    <button
+                      onClick={() => setModalAgregarVariantes(true)}
+                      style={{
+                        fontSize: 11,
+                        color: "#A0436A",
+                        border: "1px solid #c4a0b2",
+                        borderRadius: 99,
+                        padding: "1px 8px",
+                        cursor: "pointer",
+                        background: "transparent",
+                        fontWeight: 600,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      + agregar
+                    </button>
+                  </div>
                   <div
                     style={{
                       display: "flex",
@@ -1021,6 +1596,7 @@ export default function PanelVivo() {
                 </>
               )}
 
+              {/* Clienta */}
               <div className="section-label">Clienta</div>
               <div style={{ position: "relative" }} ref={sugerRef}>
                 <input
@@ -1158,6 +1734,7 @@ export default function PanelVivo() {
           )}
         </div>
 
+        {/* Prendas anteriores con conteo de vendidas */}
         {prendasAnteriores.length > 0 && (
           <div
             style={{
@@ -1182,62 +1759,126 @@ export default function PanelVivo() {
             >
               Anteriores
             </div>
-            {prendasAnteriores.map((p) => (
-              <div
-                key={p.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                  padding: "6px 8px",
-                  borderRadius: 8,
-                  background: "#f7f3f5",
-                }}
-              >
-                <span
+            {prendasAnteriores.map((p) => {
+              const vendidas = pedidosPorPrenda[p.id] || 0;
+              return (
+                <div
+                  key={p.id}
                   style={{
-                    fontSize: 12,
-                    color: "#6b4d5a",
-                    fontWeight: 500,
-                    lineHeight: 1.3,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    padding: "6px 8px",
+                    borderRadius: 8,
+                    background: "#f7f3f5",
                   }}
                 >
-                  {p.nombre}
-                </span>
-                {p.precio_unitario && (
-                  <span style={{ fontSize: 11, color: "#9c7d8a" }}>
-                    ${p.precio_unitario.toLocaleString("es")}
-                  </span>
-                )}
-                {p.stock_con_samy && (
                   <span
-                    style={{ fontSize: 10, color: "#A0436A", fontWeight: 500 }}
+                    style={{
+                      fontSize: 12,
+                      color: "#6b4d5a",
+                      fontWeight: 500,
+                      lineHeight: 1.3,
+                    }}
                   >
-                    Stock con Samy
+                    {p.nombre}
                   </span>
-                )}
-                <button
-                  onClick={() => handleReactivar(p)}
-                  style={{
-                    fontSize: 11,
-                    color: "#A0436A",
-                    border: "1px solid #c4a0b2",
-                    borderRadius: 99,
-                    padding: "2px 8px",
-                    cursor: "pointer",
-                    background: "transparent",
-                    fontWeight: 500,
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  Reactivar
-                </button>
-              </div>
-            ))}
+                  {p.precio_unitario && (
+                    <span style={{ fontSize: 11, color: "#9c7d8a" }}>
+                      ${p.precio_unitario.toLocaleString("es")}
+                    </span>
+                  )}
+                  {p.stock_con_samy && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "#A0436A",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Stock con Samy
+                    </span>
+                  )}
+                  <span
+                    style={{ fontSize: 11, color: "#27500A", fontWeight: 600 }}
+                  >
+                    {vendidas} vendida{vendidas !== 1 ? "s" : ""}
+                  </span>
+                  <button
+                    onClick={() => handleReactivar(p)}
+                    style={{
+                      fontSize: 11,
+                      color: "#A0436A",
+                      border: "1px solid #c4a0b2",
+                      borderRadius: 99,
+                      padding: "2px 8px",
+                      cursor: "pointer",
+                      background: "transparent",
+                      fontWeight: 500,
+                      alignSelf: "flex-start",
+                    }}
+                  >
+                    Reactivar
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
+      {/* Apuntes rápidos */}
+      <div style={{ marginBottom: 14 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 6,
+          }}
+        >
+          <div className="section-label" style={{ margin: 0 }}>
+            Apuntes rápidos
+          </div>
+          {apuntes && (
+            <button
+              onClick={() => setApuntes("")}
+              style={{
+                fontSize: 11,
+                color: "#9c7d8a",
+                border: "1px solid #e8dde3",
+                borderRadius: 99,
+                padding: "2px 10px",
+                cursor: "pointer",
+                background: "transparent",
+              }}
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+        <textarea
+          value={apuntes}
+          onChange={(e) => setApuntes(e.target.value)}
+          placeholder="Anotá lo que necesites durante el vivo..."
+          style={{
+            width: "100%",
+            minHeight: 72,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid #e8dde3",
+            fontSize: 13,
+            color: "#1a1014",
+            background: "#fdfbfc",
+            resize: "vertical",
+            outline: "none",
+            fontFamily: "inherit",
+            lineHeight: 1.5,
+          }}
+        />
+      </div>
+
+      {/* Historial de pedidos — más nuevo arriba */}
       {pedidos.length > 0 && (
         <>
           <div
@@ -1346,6 +1987,7 @@ export default function PanelVivo() {
         </>
       )}
 
+      {/* Terminar vivo */}
       <button
         onClick={terminarVivo}
         style={{
@@ -1364,10 +2006,18 @@ export default function PanelVivo() {
         Terminar vivo y descargar resumen
       </button>
 
+      {/* Modals */}
       {modalNuevaPrenda && (
         <ModalNuevaPrenda
           onCrear={handleNuevaPrenda}
           onClose={() => setModalNuevaPrenda(false)}
+        />
+      )}
+      {modalAgregarVariantes && prendaActiva && (
+        <ModalAgregarVariantes
+          prenda={prendaActiva}
+          onAgregar={handleAgregarVariantes}
+          onClose={() => setModalAgregarVariantes(false)}
         />
       )}
       {modalNuevaClientaNombre && (
